@@ -38,3 +38,5 @@ CREATE TABLE
         popularity INTEGER NOT NULL,
         stock INTEGER NOT NULL
     );
+
+ALTER TABLE chair ADD INDEX idx_stock (stock);
