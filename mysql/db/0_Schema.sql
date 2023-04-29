@@ -39,6 +39,4 @@ CREATE TABLE
         stock INTEGER NOT NULL
     );
 
-ALTER TABLE isuumo.chair
-ADD
-    INDEX idx_stock_price_id (stock, price, id);
+ALTER TABLE isuumo.chair ADD INDEX idx_price_and_id(price, id);
