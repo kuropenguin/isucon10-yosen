@@ -38,3 +38,7 @@ CREATE TABLE
         popularity INTEGER NOT NULL,
         stock INTEGER NOT NULL
     );
+
+ALTER TABLE isuumo.chair
+ADD
+    INDEX idx_stock_price_id (stock, price, id);
