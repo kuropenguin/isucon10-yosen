@@ -22,9 +22,9 @@ CREATE TABLE
         popularity INTEGER NOT NULL
     );
 
-ALTER TABLE isuumo.estate
-ADD
-    INDEX idx_door_width_door_height (door_width, door_height);
+ALTER TABLE isuumo.estate ADD INDEX idx_door_width (door_width);
+
+ALTER TABLE isuumo.estate ADD INDEX idx_door_height (door_height);
 
 CREATE TABLE
     isuumo.chair (
