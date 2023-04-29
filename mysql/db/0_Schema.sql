@@ -40,3 +40,5 @@ CREATE TABLE
     );
 
 ALTER TABLE isuumo.chair ADD INDEX idx_price_and_id(price, id);
+
+ALTER TABLE isuumo.estate ADD INDEX idx_rent_id(rent, id);
