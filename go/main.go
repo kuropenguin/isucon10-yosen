@@ -57,7 +57,7 @@ type ChairListResponse struct {
 	Chairs []Chair `json:"chairs"`
 }
 
-//Estate 物件
+// Estate 物件
 type Estate struct {
 	ID          int64   `db:"id" json:"id"`
 	Thumbnail   string  `db:"thumbnail" json:"thumbnail"`
@@ -73,7 +73,7 @@ type Estate struct {
 	Popularity  int64   `db:"popularity" json:"-"`
 }
 
-//EstateSearchResponse estate/searchへのレスポンスの形式
+// EstateSearchResponse estate/searchへのレスポンスの形式
 type EstateSearchResponse struct {
 	Count   int64    `json:"count"`
 	Estates []Estate `json:"estates"`
@@ -216,7 +216,7 @@ func getEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
-//ConnectDB isuumoデータベースに接続する
+// ConnectDB isuumoデータベースに接続する
 func (mc *MySQLConnectionEnv) ConnectDB() (*sqlx.DB, error) {
 	dsn := fmt.Sprintf("%v:%v@tcp(%v:%v)/%v", mc.User, mc.Password, mc.Host, mc.Port, mc.DBName)
 	return sqlx.Open("mysql", dsn)
@@ -588,7 +588,7 @@ func getChairSearchCondition(c echo.Context) error {
 
 func getLowPricedChair(c echo.Context) error {
 	var chairs []Chair
-	query := `SELECT * FROM chair WHERE stock > 0 ORDER BY price ASC, id ASC LIMIT ?`
+	query := `SELECT * FROM chair WHERE FORCE INDEX (idx_stock) stock > 0 ORDER BY price ASC, id ASC LIMIT ?`
 	err := db.Select(&chairs, query, Limit)
 	if err != nil {
 		if err == sql.ErrNoRows {
