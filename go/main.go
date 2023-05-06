@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
@@ -29,13 +30,16 @@ var mySQLConnectionDataEstate *MySQLConnectionEnv
 var mySQLConnectionDataChair *MySQLConnectionEnv
 var chairSearchCondition ChairSearchCondition
 var estateSearchCondition EstateSearchCondition
-
-var lowPricedEstateCache = make([]Estate, 0, Limit)
+var lowPricedEstateCache LowPricedEstateCache
 
 type InitializeResponse struct {
 	Language string `json:"language"`
 }
 
+type LowPricedEstateCache struct {
+	mu     sync.Mutex
+	estate []Estate
+}
 type Chair struct {
 	ID          int64  `db:"id" json:"id"`
 	Name        string `db:"name" json:"name"`
@@ -149,6 +153,39 @@ type RecordMapper struct {
 
 	offset int
 	err    error
+}
+
+func NewLowPricedEstateCache() {
+	lowPricedEstateCache = LowPricedEstateCache{
+		estate: make([]Estate, 0, Limit),
+	}
+}
+
+func (l *LowPricedEstateCache) Set() error {
+	query := `SELECT * FROM estate ORDER BY rent ASC, id ASC LIMIT ?`
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.estate = make([]Estate, 0, Limit)
+	err := dbEstate.Select(&l.estate, query, Limit)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (l *LowPricedEstateCache) Get() ([]Estate, error) {
+	estate := []Estate{}
+	l.mu.Lock()
+	estate = l.estate
+	l.mu.Unlock()
+	if len(estate) != 0 {
+		return estate, nil
+	}
+	err := l.Set()
+	if err != nil {
+		return nil, err
+	}
+	return l.estate, nil
 }
 
 func (r *RecordMapper) next() (string, error) {
@@ -300,7 +337,7 @@ func main() {
 func initialize(c echo.Context) error {
 
 	// init cache
-	lowPricedEstateCache = make([]Estate, 0, Limit)
+	NewLowPricedEstateCache()
 
 	sqlDir := filepath.Join("..", "mysql", "db")
 	// paths := []string{
@@ -740,10 +777,8 @@ func postEstate(c echo.Context) error {
 	}
 
 	// cache 更新
-	query := `SELECT * FROM estate ORDER BY rent ASC, id ASC LIMIT ?`
-	err = dbEstate.Select(&lowPricedEstateCache, query, Limit)
+	err = lowPricedEstateCache.Set()
 	if err != nil {
-		c.Logger().Errorf("getLowPricedEstate DB execution error : %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
@@ -858,21 +893,26 @@ func searchEstates(c echo.Context) error {
 }
 
 func getLowPricedEstate(c echo.Context) error {
-	if len(lowPricedEstateCache) != 0 {
-		return c.JSON(http.StatusOK, EstateListResponse{Estates: lowPricedEstateCache})
-	}
 
-	query := `SELECT * FROM estate ORDER BY rent ASC, id ASC LIMIT ?`
-	err := dbEstate.Select(&lowPricedEstateCache, query, Limit)
+	// query := `SELECT * FROM estate ORDER BY rent ASC, id ASC LIMIT ?`
+	// err := dbEstate.Select(&lowPricedEstateCache, query, Limit)
+	// if err != nil {
+	// 	if err == sql.ErrNoRows {
+	// 		c.Logger().Error("getLowPricedEstate not found")
+	// 		return c.JSON(http.StatusOK, EstateListResponse{[]Estate{}})
+	// 	}
+	// 	c.Logger().Errorf("getLowPricedEstate DB execution error : %v", err)
+	// 	return c.NoContent(http.StatusInternalServerError)
+	// }
+	estate, err := lowPricedEstateCache.Get()
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.Logger().Error("getLowPricedEstate not found")
 			return c.JSON(http.StatusOK, EstateListResponse{[]Estate{}})
 		}
-		c.Logger().Errorf("getLowPricedEstate DB execution error : %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
-	return c.JSON(http.StatusOK, EstateListResponse{Estates: lowPricedEstateCache})
+	return c.JSON(http.StatusOK, EstateListResponse{Estates: estate})
 }
 
 func searchRecommendedEstateWithChair(c echo.Context) error {
