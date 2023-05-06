@@ -174,7 +174,7 @@ func (l *LowPricedEstateCache) Set() error {
 }
 
 func (l *LowPricedEstateCache) Get() ([]Estate, error) {
-	estate := []Estate{}
+	var estate []Estate
 	l.mu.Lock()
 	estate = l.estate
 	l.mu.Unlock()
