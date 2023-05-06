@@ -30,6 +30,8 @@ var mySQLConnectionDataChair *MySQLConnectionEnv
 var chairSearchCondition ChairSearchCondition
 var estateSearchCondition EstateSearchCondition
 
+var lowPricedEstateCache = make([]Estate, 0, Limit)
+
 type InitializeResponse struct {
 	Language string `json:"language"`
 }
@@ -296,6 +298,10 @@ func main() {
 }
 
 func initialize(c echo.Context) error {
+
+	// init cache
+	lowPricedEstateCache = make([]Estate, 0, Limit)
+
 	sqlDir := filepath.Join("..", "mysql", "db")
 	// paths := []string{
 	schema := filepath.Join(sqlDir, "0_Schema.sql")
@@ -732,6 +738,15 @@ func postEstate(c echo.Context) error {
 		c.Logger().Errorf("failed to commit tx: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
+
+	// cache 更新
+	query := `SELECT * FROM estate ORDER BY rent ASC, id ASC LIMIT ?`
+	err = dbEstate.Select(&lowPricedEstateCache, query, Limit)
+	if err != nil {
+		c.Logger().Errorf("getLowPricedEstate DB execution error : %v", err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
 	return c.NoContent(http.StatusCreated)
 }
 
@@ -843,9 +858,12 @@ func searchEstates(c echo.Context) error {
 }
 
 func getLowPricedEstate(c echo.Context) error {
-	estates := make([]Estate, 0, Limit)
+	if len(lowPricedEstateCache) != 0 {
+		return c.JSON(http.StatusOK, EstateListResponse{Estates: lowPricedEstateCache})
+	}
+
 	query := `SELECT * FROM estate ORDER BY rent ASC, id ASC LIMIT ?`
-	err := dbEstate.Select(&estates, query, Limit)
+	err := dbEstate.Select(&lowPricedEstateCache, query, Limit)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.Logger().Error("getLowPricedEstate not found")
@@ -854,8 +872,7 @@ func getLowPricedEstate(c echo.Context) error {
 		c.Logger().Errorf("getLowPricedEstate DB execution error : %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
-
-	return c.JSON(http.StatusOK, EstateListResponse{Estates: estates})
+	return c.JSON(http.StatusOK, EstateListResponse{Estates: lowPricedEstateCache})
 }
 
 func searchRecommendedEstateWithChair(c echo.Context) error {
