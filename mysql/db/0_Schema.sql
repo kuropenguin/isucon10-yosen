@@ -44,7 +44,7 @@ ALTER TABLE isuumo.chair ADD INDEX idx_price_and_id(price, id);
 
 ALTER TABLE isuumo.estate ADD INDEX idx_rent_id(rent, id);
 
-ALTER TABLE isuumo.estate
+ALTER TABLE estate
 ADD
     INDEX estate_popularity_id_idx(popularity_desc, id);
 
